@@ -8,7 +8,7 @@ import streamlit as st
 import yaml
 from datetime import date, timedelta, datetime
 from rules_engine import RulesEngine, MegaPromptGenerator
-from tomate_bridge import TomateBridge, render_export_widget, HAS_REQUESTS
+from firebase_bridge import FirebaseBridge, COLLECTIONS, HAS_FIREBASE
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CONFIG PAGE
@@ -77,6 +77,29 @@ def load_engine():
 @st.cache_resource
 def load_generator():
     return MegaPromptGenerator("rules_cnje.yaml")
+
+@st.cache_resource
+def load_firebase_bridge():
+    """Charge le bridge Firebase une seule fois (Service Account lourd à init)."""
+    try:
+        b = FirebaseBridge("serviceAccountKey.json")
+        ok, msg = b.ping()
+        if ok:
+            return b, msg
+        return None, msg
+    except Exception as e:
+        return None, str(e)
+
+@st.cache_data(ttl=300)
+def load_users_from_firebase():
+    """Charge la liste des étudiants depuis Firestore (cache 5 min)."""
+    bridge, _ = load_firebase_bridge()
+    if bridge is None:
+        return []
+    try:
+        return bridge.get_users()
+    except Exception:
+        return []
 
 @st.cache_data
 def load_yaml_meta():
@@ -206,7 +229,7 @@ def build_etude_data() -> dict:
         "fee":          st.session_state.fee,
         "break_jeh":    st.session_state.break_jeh,
         "break_fee":    st.session_state.break_fee,
-        "statut_id":    st.session_state.etude_statut_id,
+        "etude_statut_id": st.session_state.etude_statut_id,
         "locked":       st.session_state.etude_locked,
         "has_child":    st.session_state.etude_has_child,
         "date_created": date.today(),
@@ -411,16 +434,18 @@ def step_etapes():
                         with fc1:
                             ed_nom = st.text_input("Nom de l'étudiant", key=f"ed_nom_{idx}")
                         with fc2:
-                            ed_id = st.number_input("ID Tomate", min_value=1, step=1,
-                                                    key=f"ed_id_{idx}")
+                            ed_id = st.text_input("Firebase UID",
+                                                  key=f"ed_id_{idx}",
+                                                  placeholder="ex: 15A6lzEMS6c1ciBx0vArrroRpi03",
+                                                  help="ID visible dans Firestore → collection users")
                         with fc3:
                             ed_jeh = st.number_input("Nombre de JEH", min_value=1,
                                                      max_value=50, step=1,
                                                      key=f"ed_jeh_{idx}")
                         if st.form_submit_button("Assigner", type="primary"):
                             st.session_state.etapes[idx]["sEtapes"].append({
-                                "etudiant_id":  int(ed_id),
-                                "etudiant_nom": ed_nom or f"Étudiant #{ed_id}",
+                                "etudiant_id":  ed_id.strip(),
+                                "etudiant_nom": ed_nom or f"Étudiant {ed_id[:8]}…" if ed_id else "Étudiant",
                                 "jeh":          int(ed_jeh),
                                 "level":        0,
                             })
@@ -751,25 +776,90 @@ def step_export():
         nav_buttons(next_label="Prompt IA →", next_disabled=True)
         return
 
-    result = render_export_widget(st.session_state)
+    bridge, bridge_msg = load_firebase_bridge()
 
-    if result is not None:
-        st.divider()
-        if result.success:
-            st.success(f"✅ Étude #{result.etude_numero} créée dans Tomate.")
-            if result.etude_url:
-                st.markdown(f"**[Ouvrir l'étude dans Tomate]({result.etude_url})**")
-            st.info(
-                "Prochaine étape : générer le Prompt IA pour rédiger "
-                "les textes, puis les copier dans Tomate."
-            )
-        else:
-            st.error(f"Export échoué à l'étape **{result.error_step}** : {result.last_error}")
-            if result.etude_url:
-                st.warning(
-                    f"L'étude a été partiellement créée. "
-                    f"[Compléter manuellement dans Tomate]({result.etude_url})"
-                )
+    # ── Statut de la connexion Firebase ────────────────────────────
+    if bridge is None:
+        st.error(f"Connexion Firestore impossible : {bridge_msg}")
+        with st.expander("Comment configurer le Service Account ?"):
+            st.markdown("""
+**Étapes dans Firebase Console :**
+
+1. Ouvrir [console.firebase.google.com/project/tomate-eje](https://console.firebase.google.com/project/tomate-eje)
+2. Roue dentée ⚙ → **Paramètres du projet** → onglet **Comptes de service**
+3. Cliquer **Générer une nouvelle clé privée**
+4. Sauvegarder le fichier sous le nom ****
+5. Placer ce fichier dans le même dossier que 
+6. Relancer l'application Streamlit
+""")
+        nav_buttons(next_label="Prompt IA →")
+        return
+    else:
+        st.success(f"✅ {bridge_msg}")
+
+    # ── Prévisualisation ────────────────────────────────────────────
+    with st.expander("Données qui seront écrites dans Firestore"):
+        etapes = st.session_state.get("etapes") or []
+        preview = {
+            "Collection etudes": {
+                "nom":     st.session_state.get("etude_nom"),
+                "p_jeh":   st.session_state.get("p_jeh"),
+                "per_rem": st.session_state.get("per_rem"),
+                "fee":     st.session_state.get("fee"),
+                "domaines":st.session_state.get("etude_domaines"),
+                "statut":  st.session_state.get("etude_statut_id"),
+            },
+            "Collection etapes": f"{len(etapes)} étape(s)",
+            "Collection jeh_etape": f"{sum(len(e.get('sEtapes',[]))  for e in etapes)} ligne(s) JEH",
+            "Collection clients": st.session_state.get("client"),
+            "Collection entreprises": st.session_state.get("entreprise"),
+        }
+        st.json(preview)
+
+    # ── Bouton export ───────────────────────────────────────────────
+    st.divider()
+    if st.button("Exporter vers Firestore (Tomate)", type="primary",
+                 use_container_width=False):
+        export_data = dict(st.session_state)
+
+        with st.status("Export Firestore en cours…", expanded=True) as status:
+            step_labels = {
+                "entreprise": "Entreprise cliente",
+                "client":     "Contact client",
+                "signataire": "Signataire",
+                "etude":      "Étude principale",
+                "etapes":     "Étapes & JEH",
+            }
+            try:
+                result = bridge.push_all(export_data)
+            except Exception as e:
+                st.error(f"Erreur inattendue : {e}")
+                status.update(label="Erreur", state="error")
+                nav_buttons(next_label="Prompt IA →")
+                return
+
+            for step in result.steps:
+                label = step_labels.get(step.step, step.step)
+                if step.ok:
+                    eid = step.entity_id[:8] + "…" if step.entity_id else ""
+                    id_str = f" (id: `{eid}`)" if eid else ""
+                    st.write(f"✅ {label}{id_str}")
+                else:
+                    st.write(f"❌ {label} — {step.error_msg}")
+
+            if result.success:
+                status.update(label="Export réussi !", state="complete")
+                st.success(f"Étude créée dans Firestore (id: `{result.etude_id}`)")
+                if result.etude_url:
+                    st.markdown(f"**[Ouvrir dans Tomate]({result.etude_url})**")
+                st.info("Prochaine étape : générer le Prompt IA, copier les textes dans Tomate.")
+                load_users_from_firebase.clear()
+            else:
+                status.update(label=f"Échec : {result.error_step}", state="error")
+                st.error(result.last_error)
+                if result.etude_id:
+                    st.warning(f"Étude partiellement créée (id: `{result.etude_id}`). "
+                               f"Compléter manuellement dans Tomate.")
 
     st.divider()
     nav_buttons(next_label="Prompt IA →")

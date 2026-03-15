@@ -136,7 +136,12 @@ class FirebaseBridge:
             .order_by("numero", direction=firestore.Query.DESCENDING)
             .limit(1).stream()
         )
-        return (docs[0].to_dict().get("numero") or 0) + 1 if docs else 1
+        if docs:
+            try:
+                return int(docs[0].to_dict().get("numero") or 0) + 1
+            except (ValueError, TypeError):
+                pass
+        return 1
 
     # ── Lecture ───────────────────────────────────────────────────────────────
 

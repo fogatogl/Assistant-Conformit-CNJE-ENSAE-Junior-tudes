@@ -11,19 +11,6 @@ from rules_engine import RulesEngine, MegaPromptGenerator
 from firebase_bridge import FirebaseBridge, COLLECTIONS, HAS_FIREBASE
 
 
-# DEBUG TEMPORAIRE — à supprimer après résolution
-import streamlit as st
-try:
-    keys = list(st.secrets.keys())
-    st.sidebar.write("Secrets disponibles :", keys)
-    if "firebase" in st.secrets:
-        firebase_keys = list(st.secrets["firebase"].keys())
-        st.sidebar.write("Clés dans [firebase] :", firebase_keys)
-    else:
-        st.sidebar.error("Section [firebase] absente des secrets")
-except Exception as e:
-    st.sidebar.error(f"Erreur lecture secrets : {e}")
-
 # ─────────────────────────────────────────────────────────────────────────────
 # CONFIG PAGE
 # ─────────────────────────────────────────────────────────────────────────────

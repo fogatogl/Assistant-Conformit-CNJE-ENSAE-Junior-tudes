@@ -10,7 +10,6 @@ from datetime import date, timedelta, datetime
 from rules_engine import RulesEngine, MegaPromptGenerator
 from firebase_bridge import FirebaseBridge, COLLECTIONS, HAS_FIREBASE
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # CONFIG PAGE
 # ─────────────────────────────────────────────────────────────────────────────
@@ -81,36 +80,15 @@ def load_generator():
 
 @st.cache_resource
 def load_firebase_bridge():
+    """Charge le bridge Firebase une seule fois (Service Account lourd à init)."""
     try:
-        import json, tempfile
-
-        fb = st.secrets["firebase"]
-        sa_dict = {
-            "type":                        fb["type"],
-            "project_id":                  fb["project_id"],
-            "private_key_id":              fb["private_key_id"],
-            "private_key":                 fb["private_key"],
-            "client_email":                fb["client_email"],
-            "client_id":                   fb["client_id"],
-            "auth_uri":                    fb["auth_uri"],
-            "token_uri":                   fb["token_uri"],
-            "auth_provider_x509_cert_url": fb["auth_provider_x509_cert_url"],
-            "client_x509_cert_url":        fb["client_x509_cert_url"],
-        }
-        tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
-        json.dump(sa_dict, tmp)
-        tmp.close()
-
-        b = FirebaseBridge(tmp.name)
+        b = FirebaseBridge("serviceAccountKey.json")
         ok, msg = b.ping()
         if ok:
             return b, msg
         return None, msg
-
     except Exception as e:
-        # Afficher l'erreur complète — DEBUG
-        import traceback
-        return None, f"ERREUR COMPLÈTE : {traceback.format_exc()}"
+        return None, str(e)
 
 @st.cache_data(ttl=300)
 def load_users_from_firebase():
@@ -125,7 +103,7 @@ def load_users_from_firebase():
 
 @st.cache_data
 def load_yaml_meta():
-    with open("rules_cnje.yaml", "r", encoding="utf-8") as f:
+    with open("rules_cnje.yaml", "r") as f:
         raw = yaml.safe_load(f)
     return raw.get("meta", {}), raw.get("mega_prompt_config", {})
 
@@ -239,8 +217,8 @@ DOMAINES = [
 ]
 
 LIEUX = {1: "À l'ENSAE", 2: "Chez le client"}
-STATUTS = {0: "Lancement", 1: "Recrutement", 2: "En cours",
-           3: "Clôturée",  4: "Abandonnée"}
+STATUTS = {0: "Brouillon", 1: "En attente", 2: "Recrutement",
+           3: "Sélection", 4: "En cours", 5: "Clôturée"}
 
 
 def build_etude_data() -> dict:
@@ -451,27 +429,59 @@ def step_etapes():
 
                 # Sous-formulaire assignation d'un étudiant à cette étape
                 with st.expander(f"Assigner des JEH à l'étape {idx+1}"):
-                    with st.form(f"form_jeh_{idx}", clear_on_submit=True):
-                        fc1, fc2, fc3 = st.columns(3)
-                        with fc1:
-                            ed_nom = st.text_input("Nom de l'étudiant", key=f"ed_nom_{idx}")
-                        with fc2:
-                            ed_id = st.text_input("Firebase UID",
-                                                  key=f"ed_id_{idx}",
-                                                  placeholder="ex: 15A6lzEMS6c1ciBx0vArrroRpi03",
-                                                  help="ID visible dans Firestore → collection users")
-                        with fc3:
-                            ed_jeh = st.number_input("Nombre de JEH", min_value=1,
-                                                     max_value=50, step=1,
-                                                     key=f"ed_jeh_{idx}")
-                        if st.form_submit_button("Assigner", type="primary"):
-                            st.session_state.etapes[idx]["sEtapes"].append({
-                                "etudiant_id":  ed_id.strip(),
-                                "etudiant_nom": ed_nom or f"Étudiant {ed_id[:8]}…" if ed_id else "Étudiant",
-                                "jeh":          int(ed_jeh),
-                                "level":        0,
-                            })
-                            st.rerun()
+                    # Charger les étudiants depuis Firestore
+                    users = load_users_from_firebase()
+                    if not users:
+                        st.warning("Impossible de charger la liste des étudiants. Vérifiez la connexion Firestore.")
+                    else:
+                        # Construire le mapping "Prénom Nom → {_id, nom, prenom}"
+                        def user_label(u):
+                            prenom = u.get("prenom") or u.get("firstName") or ""
+                            nom    = u.get("nom") or u.get("lastName") or u.get("name") or ""
+                            label  = f"{prenom} {nom}".strip() or u.get("email") or u["_id"][:12] + "…"
+                            return label
+
+                        # Trier par nom pour faciliter la recherche
+                        users_sorted = sorted(users, key=lambda u: user_label(u).lower())
+
+                        # Filtrer les étudiants déjà assignés à cette étape
+                        deja_assignes = {se["etudiant_id"] for se in etape.get("sEtapes", [])}
+
+                        options = [u for u in users_sorted if u["_id"] not in deja_assignes]
+                        labels  = [user_label(u) for u in options]
+
+                        with st.form(f"form_jeh_{idx}", clear_on_submit=True):
+                            fc1, fc2 = st.columns([3, 1])
+                            with fc1:
+                                if options:
+                                    sel_idx = st.selectbox(
+                                        "Étudiant",
+                                        options=range(len(options)),
+                                        format_func=lambda i: labels[i],
+                                        key=f"sel_etudiant_{idx}",
+                                        help="Tous les membres de la JE sont listés ici",
+                                    )
+                                else:
+                                    st.info("Tous les membres disponibles sont déjà assignés à cette étape.")
+                                    sel_idx = None
+                            with fc2:
+                                ed_jeh = st.number_input(
+                                    "JEH", min_value=1, max_value=50, step=1,
+                                    key=f"ed_jeh_{idx}",
+                                    help="Nombre de Jours-Étudiants-Homologués",
+                                )
+
+                            btn_disabled = (sel_idx is None or not options)
+                            if st.form_submit_button("Assigner", type="primary",
+                                                     disabled=btn_disabled):
+                                selected_user = options[sel_idx]
+                                st.session_state.etapes[idx]["sEtapes"].append({
+                                    "etudiant_id":  selected_user["_id"],
+                                    "etudiant_nom": user_label(selected_user),
+                                    "jeh":          int(ed_jeh),
+                                    "level":        selected_user.get("level", 0),
+                                })
+                                st.rerun()
 
                 # Tableau des JEH assignés
                 if etape["sEtapes"]:

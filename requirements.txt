@@ -1,0 +1,5 @@
+# Dépendances — Assistant Conformité CNJE — ENSAE Junior Études
+# Installer avec : pip install -r requirements.txt
+
+streamlit>=1.32.0
+pyyaml>=6.0

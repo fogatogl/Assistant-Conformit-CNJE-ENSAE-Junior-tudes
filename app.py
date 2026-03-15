@@ -8,6 +8,7 @@ import streamlit as st
 import yaml
 from datetime import date, timedelta, datetime
 from rules_engine import RulesEngine, MegaPromptGenerator
+from tomate_bridge import TomateBridge, render_export_widget, HAS_REQUESTS
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CONFIG PAGE
@@ -91,7 +92,7 @@ meta, _   = load_yaml_meta()
 # ÉTAT SESSION (navigation multi-étapes)
 # ─────────────────────────────────────────────────────────────────────────────
 
-STEPS = ["Étude", "Étapes & JEH", "Intervenants", "Financier", "Validation", "Prompt IA"]
+STEPS = ["Étude", "Étapes & JEH", "Intervenants", "Financier", "Validation", "Export Tomate", "Prompt IA"]
 
 def init_state():
     defaults = {
@@ -666,11 +667,11 @@ def step_validation():
         col3.metric("Taux rem.", f"{data['per_rem']} %")
 
     nav_buttons(
-        next_label="Générer le Prompt IA →",
+        next_label="Export vers Tomate →",
         next_disabled=not report.is_valid,
     )
     if not report.is_valid:
-        st.caption("Le bouton 'Prompt IA' est disponible uniquement quand l'étude est valide (zéro erreur bloquante).")
+        st.caption("Le bouton 'Export' est disponible uniquement quand l'étude est valide (zéro erreur bloquante).")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -740,6 +741,40 @@ Ces données restent dans votre système et dans Tomate uniquement.
     nav_buttons(next_label="— Fin du parcours —", next_disabled=True)
 
 
+def step_export():
+    render_step_bar()
+    st.subheader("Export vers Tomate")
+
+    report = st.session_state.last_report
+    if report is None or not report.is_valid:
+        st.error("L'étude doit être validée (étape précédente) avant l'export.")
+        nav_buttons(next_label="Prompt IA →", next_disabled=True)
+        return
+
+    result = render_export_widget(st.session_state)
+
+    if result is not None:
+        st.divider()
+        if result.success:
+            st.success(f"✅ Étude #{result.etude_numero} créée dans Tomate.")
+            if result.etude_url:
+                st.markdown(f"**[Ouvrir l'étude dans Tomate]({result.etude_url})**")
+            st.info(
+                "Prochaine étape : générer le Prompt IA pour rédiger "
+                "les textes, puis les copier dans Tomate."
+            )
+        else:
+            st.error(f"Export échoué à l'étape **{result.error_step}** : {result.last_error}")
+            if result.etude_url:
+                st.warning(
+                    f"L'étude a été partiellement créée. "
+                    f"[Compléter manuellement dans Tomate]({result.etude_url})"
+                )
+
+    st.divider()
+    nav_buttons(next_label="Prompt IA →")
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # ROUTEUR PRINCIPAL
 # ─────────────────────────────────────────────────────────────────────────────
@@ -753,6 +788,7 @@ STEP_FUNCS = [
     step_intervenants,
     step_financier,
     step_validation,
+    step_export,
     step_prompt,
 ]
 

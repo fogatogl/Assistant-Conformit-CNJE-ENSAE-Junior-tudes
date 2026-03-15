@@ -152,3 +152,51 @@ client manquant, dates incohérentes, trop de JEH par étudiant, aucun intervena
 - Version : voir `meta.version` dans `rules_cnje.yaml`
 - Sections : 12 sections de règles métier + configuration Mega-Prompt
 - Règles : 31 règles (21 bloquantes, 8 avertissements, 2 informatives)
+
+---
+
+## Sprint 2 — Export vers Tomate (`tomate_bridge.py`)
+
+### Ce que fait le pont
+
+`tomate_bridge.py` envoie automatiquement une étude validée vers Tomate via ses endpoints AJAX existants. Aucune modification de Tomate requise.
+
+**Pipeline ordonné :**
+1. Authentification (`POST /Auth/AJAX/SignIn/`) → cookie de session
+2. Création de l'entreprise (`POST /Ajax/SaveEntreprise/`) → `entreprise_id`
+3. Création du client + signataire (`POST /Ajax/SaveClient/`) → `client_id`
+4. Création de l'étude (`POST /Ajax/SaveEtude/`) → `etude_id`, `numero`
+5. Envoi des étapes & JEH (`POST /Ajax/SaveEtapes/`) → étapes liées
+
+### Tester la connexion en ligne de commande
+
+```bash
+python tomate_bridge.py \
+  --url http://votre-tomate.fr \
+  --email admin@ensaeje.fr \
+  --password votre_mdp \
+  --dry-run      # test de connectivité uniquement, sans créer de données
+```
+
+Sans `--dry-run` : crée une étude de test (à supprimer manuellement).
+
+### Prérequis Tomate pour l'export
+
+- L'utilisateur admin doit avoir `level >= 2` dans la table `etudiant`
+- Les endpoints `/Ajax/*` doivent être accessibles depuis le serveur Streamlit
+- Si Tomate est sur un autre domaine : configurer CORS dans `.htaccess`
+
+### Mapping des données
+
+| Champ Streamlit | Endpoint Tomate | Champ Tomate |
+|---|---|---|
+| `etude_nom` | SaveEtude | `nom` |
+| `etude_domaines` (labels) | SaveEtude | `domaines` (IDs) |
+| `p_jeh`, `per_rem`, `fee` | SaveEtude | identiques |
+| `etude_lieu` (int) | SaveEtude | `lieu` |
+| `client.nom/prenom` | SaveClient | `nom`, `prenom` |
+| `entreprise.nom` | SaveEntreprise | `nom` |
+| `etapes[].nom/details/dates` | SaveEtapes | `nom`, `details`, `date_start`, `date_end` |
+| `sEtapes[].etudiant_id + jeh` | SaveEtapes | `etudiant`, `jeh` |
+
+**Note** : les IDs des étudiants (`etudiant_id`) doivent correspondre aux IDs réels dans la base Tomate. Pour le moment, la saisie est manuelle dans le formulaire Streamlit.

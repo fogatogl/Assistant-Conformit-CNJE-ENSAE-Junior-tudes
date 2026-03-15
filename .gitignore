@@ -1,0 +1,11 @@
+# Environnements virtuels
+.venv/
+venv/
+
+# Fichiers sensibles à ne jamais commiter
+serviceAccountKey.json
+.streamlit/secrets.toml
+
+# Fichiers générés par Python
+__pycache__/
+*.pyc

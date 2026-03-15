@@ -178,7 +178,7 @@ class RulesEngine:
 
         # Total JEH toutes étapes
         total_jeh = sum(
-            sum(se.get("jeh", 0) for se in e.get("sEtapes", []))
+            sum(se.get("jeh", 0) for se in (e.get("sEtapes") or []))
             for e in etapes
         )
         ctx["total_jeh"] = total_jeh
@@ -186,7 +186,7 @@ class RulesEngine:
         # JEH par étudiant (agrégé sur l'ensemble de l'étude)
         jeh_par_etudiant: dict[int, dict] = {}
         for etape in etapes:
-            for se in etape.get("sEtapes", []):
+            for se in (etape.get("sEtapes") or []):
                 eid = se.get("etudiant_id")
                 if eid is None:
                     continue
@@ -430,7 +430,7 @@ class RulesEngine:
         r = self._get_rule(section, "JEH_MIN_PAR_ETAPE")
         if r:
             for etape in etapes:
-                n_jeh_etape = sum(se.get("jeh", 0) for se in etape.get("sEtapes", []))
+                n_jeh_etape = sum(se.get("jeh", 0) for se in (etape.get("sEtapes") or []))
                 if n_jeh_etape < r["valeur"]:
                     msg = self._fmt(r, "message_erreur", {
                         "nom_etape": etape.get("nom", "?"),
@@ -446,7 +446,7 @@ class RulesEngine:
         if r:
             for etape in etapes:
                 seen: set[int] = set()
-                for se in etape.get("sEtapes", []):
+                for se in (etape.get("sEtapes") or []):
                     eid = se.get("etudiant_id")
                     if eid is not None:
                         if eid in seen:
@@ -594,7 +594,7 @@ class RulesEngine:
         if r:
             for etape in etapes:
                 n = len(set(
-                    se.get("etudiant_id") for se in etape.get("sEtapes", [])
+                    se.get("etudiant_id") for se in (etape.get("sEtapes") or [])
                     if se.get("etudiant_id") is not None
                 ))
                 if n > r["valeur"]:
@@ -722,7 +722,7 @@ class MegaPromptGenerator:
 
         etapes_bloc = ""
         for i, e in enumerate(etapes, 1):
-            n_jeh = sum(se.get("jeh", 0) for se in e.get("sEtapes", []))
+            n_jeh = sum(se.get("jeh", 0) for se in (e.get("sEtapes") or []))
             etapes_bloc += (
                 f"  Étape {i} : {e.get('nom','?')} ({n_jeh} JEH)\n"
                 f"    Détails : {e.get('details','') or 'À préciser'}\n"
@@ -743,7 +743,7 @@ Template : {tmpl.get('usage','?')}
 Domaine(s) : {', '.join(domaines) if domaines else 'Non précisé'}
 Lieu d'intervention : {lieu_label}
 Nombre d'étapes : {len(etapes)}
-Volume total : {sum(sum(se.get('jeh',0) for se in e.get('sEtapes',[])) for e in etapes)} JEH
+Volume total : {sum(sum(se.get('jeh',0) for se in (e.get('sEtapes') or [])) for e in etapes)} JEH
 
 Étapes de la mission :
 {etapes_bloc.rstrip()}

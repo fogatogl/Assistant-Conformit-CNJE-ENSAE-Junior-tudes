@@ -103,7 +103,7 @@ def load_users_from_firebase():
 
 @st.cache_data
 def load_yaml_meta():
-    with open("rules_cnje.yaml", "r") as f:
+    with open("rules_cnje.yaml", "r", encoding="utf-8") as f:
         raw = yaml.safe_load(f)
     return raw.get("meta", {}), raw.get("mega_prompt_config", {})
 

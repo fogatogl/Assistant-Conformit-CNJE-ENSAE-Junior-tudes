@@ -80,9 +80,22 @@ def load_generator():
 
 @st.cache_resource
 def load_firebase_bridge():
-    """Charge le bridge Firebase une seule fois (Service Account lourd à init)."""
     try:
-        b = FirebaseBridge("serviceAccountKey.json")
+        import json, tempfile, os
+        # Essayer d'abord les Secrets Streamlit (prod)
+        try:
+            import streamlit as st
+            sa_json = st.secrets["firebase"]["service_account_json"]
+            # Écrire dans un fichier temporaire que firebase-admin peut lire
+            tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
+            tmp.write(sa_json)
+            tmp.close()
+            sa_path = tmp.name
+        except (KeyError, Exception):
+            # Fallback : fichier local (dev)
+            sa_path = "serviceAccountKey.json"
+
+        b = FirebaseBridge(sa_path)
         ok, msg = b.ping()
         if ok:
             return b, msg

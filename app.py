@@ -80,15 +80,35 @@ def load_generator():
 
 @st.cache_resource
 def load_firebase_bridge():
-    """Charge le bridge Firebase une seule fois (Service Account lourd à init)."""
     try:
-        b = FirebaseBridge("serviceAccountKey.json")
+        import json, tempfile
+
+        fb = st.secrets["firebase"]
+        sa_dict = {
+            "type":                        fb["type"],
+            "project_id":                  fb["project_id"],
+            "private_key_id":              fb["private_key_id"],
+            "private_key":                 fb["private_key"],
+            "client_email":                fb["client_email"],
+            "client_id":                   fb["client_id"],
+            "auth_uri":                    fb["auth_uri"],
+            "token_uri":                   fb["token_uri"],
+            "auth_provider_x509_cert_url": fb["auth_provider_x509_cert_url"],
+            "client_x509_cert_url":        fb["client_x509_cert_url"],
+        }
+        tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
+        json.dump(sa_dict, tmp)
+        tmp.close()
+
+        b = FirebaseBridge(tmp.name)
         ok, msg = b.ping()
         if ok:
             return b, msg
         return None, msg
+
     except Exception as e:
-        return None, str(e)
+        import traceback
+        return None, f"ERREUR COMPLÈTE : {traceback.format_exc()}"
 
 @st.cache_data(ttl=300)
 def load_users_from_firebase():

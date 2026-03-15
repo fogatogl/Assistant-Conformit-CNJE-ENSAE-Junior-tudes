@@ -118,9 +118,12 @@ class TomateBridge:
     Client HTTP pour l'API interne de Tomate.
 
     Usage :
-        bridge = TomateBridge("http://localhost/tomate", "admin@eje.fr", "motdepasse")
+        bridge = TomateBridge("https://tomate-dev.ensaejunioretudes.fr", "admin@eje.fr", "mdp")
         result = bridge.push_all(session_data)
     """
+
+    # Route de login (modules/auth/config/routes.config)
+    LOGIN_PATH = "/Auth/AJAX/SignIn/"
 
     def __init__(self, base_url: str, email: str, password: str):
         if not HAS_REQUESTS:
@@ -149,16 +152,19 @@ class TomateBridge:
 
     def login(self) -> StepResult:
         """
-        POST /Auth/AJAX/SignIn/
-        Tomate retourne {"res": true, "url": "..."} et pose un cookie de session.
+        POST /Auth/AJAX/SignIn/   (route définie dans modules/auth/config/routes.config)
+        Tomate retourne {"res": true, "url": "/..."} et pose PHPSESSID.
+        allow_redirects=True suit le redirect HTTP→HTTPS si base_url est en HTTP.
         """
         session = self._get_session()
-        url = f"{self.base_url}/Auth/AJAX/SignIn/"
+        url = f"{self.base_url}{self.LOGIN_PATH}"
         try:
-            resp = session.post(url, json={
-                "mail":     self.email,
-                "password": self.password,
-            }, timeout=10)
+            resp = session.post(
+                url,
+                json={"mail": self.email, "password": self.password},
+                timeout=10,
+                allow_redirects=True,
+            )
             data = self._parse_response(resp, "login")
         except Exception as e:
             return StepResult(ok=False, step="login", error_msg=f"Connexion impossible : {e}")
@@ -556,15 +562,28 @@ class TomateBridge:
     def ping(self) -> tuple[bool, str]:
         """
         Vérifie que Tomate est accessible et que les credentials fonctionnent.
-        Retourne (True, message) ou (False, message d'erreur).
+        Teste d'abord la page de login (GET /SignIn/) puis POST /Auth/AJAX/SignIn/.
         """
         if not HAS_REQUESTS:
             return False, "Module 'requests' non installé."
         try:
             session = self._get_session()
-            resp = session.get(f"{self.base_url}/SignIn/", timeout=8)
-            if resp.status_code not in (200, 302):
+            # On teste la page de login publique (level 0 dans routes.config)
+            resp = session.get(
+                f"{self.base_url}/SignIn/",
+                timeout=8,
+                allow_redirects=True,
+            )
+            # 200 = page de login affichée, 302 = redirect (ex. déjà connecté)
+            # Tomate peut aussi retourner du HTML avec un 200 si la route n'existe pas
+            # → on vérifie que ce n'est pas une erreur serveur
+            if resp.status_code >= 500:
                 return False, f"Tomate inaccessible (HTTP {resp.status_code})"
+            if resp.status_code == 404:
+                return False, (
+                    f"Route /SignIn/ introuvable (404). "
+                    f"Vérifier que l'URL de base est correcte : {self.base_url}"
+                )
         except Exception as e:
             return False, f"Hôte inaccessible : {e}"
 

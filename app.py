@@ -217,8 +217,8 @@ DOMAINES = [
 ]
 
 LIEUX = {1: "À l'ENSAE", 2: "Chez le client"}
-STATUTS = {0: "Brouillon", 1: "En attente", 2: "Recrutement",
-           3: "Sélection", 4: "En cours", 5: "Clôturée"}
+STATUTS = {0: "Lancement", 1: "Recrutement", 2: "En cours",
+           3: "Clôturée",  4: "Abandonnée"}
 
 
 def build_etude_data() -> dict:

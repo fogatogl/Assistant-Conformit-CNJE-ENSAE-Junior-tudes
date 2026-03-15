@@ -59,8 +59,10 @@ DOMAINES_LABEL_TO_ID = {
 }
 
 ETAT_MAP = {
-    0: "brouillon", 1: "en attente", 2: "recrutement",
-    3: "selection", 4: "en cours", 5: "cloturee",
+    0: "lancement",   1: "recrutement",  2: "en cours",
+    3: "cloturee",    4: "abandonnee",
+    # Note : valeurs confirmées depuis un document Tomate réel (mars 2026)
+    # "lancement" = étude en préparation, visible dans l'interface Tomate
 }
 
 
@@ -89,36 +91,19 @@ class FirebasePushResult:
         failed = [s for s in self.steps if not s.ok]
         return failed[-1].error_msg if failed else ""
 
-import json
 
 class FirebaseBridge:
+
     def __init__(self, service_account_path: str = "serviceAccountKey.json"):
         if not HAS_FIREBASE:
             raise ImportError("pip install firebase-admin")
-        
-        sa_dict = None
-        
-        try:
-            import streamlit as st
-            if "firebase" in st.secrets:
-                sa_dict = dict(st.secrets["firebase"])
-        except Exception:
-            pass
-            
-        if sa_dict is None:
-            try:
-                with open(service_account_path, "r") as f:
-                    sa_dict = json.load(f)
-            except FileNotFoundError:
-                raise FileNotFoundError(f"Fichier '{service_account_path}' introuvable et pas de secrets.toml")
-        
-        self._sa_dict = sa_dict
+        self._sa_path = service_account_path
         self._db = None
 
     def _get_db(self):
         if self._db is None:
             if not firebase_admin._apps:
-                cred = credentials.Certificate(self._sa_dict)
+                cred = credentials.Certificate(self._sa_path)
                 firebase_admin.initialize_app(cred)
             self._db = firestore.client()
         return self._db
@@ -130,18 +115,23 @@ class FirebaseBridge:
         if isinstance(d, date): return datetime(d.year, d.month, d.day)
         return None
 
-    def _next_numero(self, db) -> int:
+    def _next_numero(self, db) -> str:
+        """
+        Retourne le prochain numéro comme STRING.
+        Tomate stocke numero en string (ex: "3084"), pas en entier.
+        """
         docs = list(
             db.collection(COLLECTIONS["etudes"])
             .order_by("numero", direction=firestore.Query.DESCENDING)
             .limit(1).stream()
         )
         if docs:
+            last = docs[0].to_dict().get("numero", "0")
             try:
-                return int(docs[0].to_dict().get("numero") or 0) + 1
+                return str(int(str(last)) + 1)
             except (ValueError, TypeError):
-                pass
-        return 1
+                return "1"
+        return "1"
 
     # ── Lecture ───────────────────────────────────────────────────────────────
 

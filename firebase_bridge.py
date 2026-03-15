@@ -59,8 +59,8 @@ DOMAINES_LABEL_TO_ID = {
 }
 
 ETAT_MAP = {
-    0: "lancement", 1: "recrutement", 2: "en cours",
-    3: "cloturee",  4: "abandonnee",
+    0: "brouillon", 1: "en attente", 2: "recrutement",
+    3: "selection", 4: "en cours", 5: "cloturee",
 }
 
 
@@ -89,7 +89,6 @@ class FirebasePushResult:
         failed = [s for s in self.steps if not s.ok]
         return failed[-1].error_msg if failed else ""
 
-import streamlit as st
 import json
 
 class FirebaseBridge:
@@ -97,18 +96,21 @@ class FirebaseBridge:
         if not HAS_FIREBASE:
             raise ImportError("pip install firebase-admin")
         
-        # En développement local : cherche le fichier
-        # En Streamlit Cloud : cherche dans st.secrets
+        sa_dict = None
+        
         try:
+            import streamlit as st
             if "firebase" in st.secrets:
-                # Streamlit Cloud mode
                 sa_dict = dict(st.secrets["firebase"])
-            else:
-                # Mode local
+        except Exception:
+            pass
+            
+        if sa_dict is None:
+            try:
                 with open(service_account_path, "r") as f:
                     sa_dict = json.load(f)
-        except FileNotFoundError:
-            raise FileNotFoundError(f"Fichier '{service_account_path}' introuvable et pas de secrets.toml")
+            except FileNotFoundError:
+                raise FileNotFoundError(f"Fichier '{service_account_path}' introuvable et pas de secrets.toml")
         
         self._sa_dict = sa_dict
         self._db = None

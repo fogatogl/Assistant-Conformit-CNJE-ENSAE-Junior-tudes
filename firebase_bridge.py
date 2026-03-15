@@ -91,7 +91,6 @@ class FirebasePushResult:
 
 import streamlit as st
 import json
-from firebase_admin import credentials
 
 class FirebaseBridge:
     def __init__(self, service_account_path: str = "serviceAccountKey.json"):

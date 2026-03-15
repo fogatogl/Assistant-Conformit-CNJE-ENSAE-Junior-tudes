@@ -1,0 +1,917 @@
+# =============================================================================
+# RÉFÉRENTIEL CNJE — Règles de conformité pour Junior-Entreprises
+# =============================================================================
+#
+# FICHIER DE RÉFÉRENCE pour le moteur de validation du système Tomate / outil
+# de conformité CNJE d'ENSAE Junior Études.
+#
+# COMMENT UTILISER CE FICHIER :
+#   - Chaque règle est identifiée par un `id` unique et stable (ne jamais
+#     renommer un id existant — il est référencé dans le code).
+#   - Pour mettre à jour une valeur après une révision CNJE : modifier
+#     uniquement le champ `valeur` et mettre à jour `ref_cnje` + `date_maj`.
+#   - Pour désactiver temporairement une règle sans la supprimer : passer
+#     `active: false`.
+#   - Pour ajouter une règle : copier le bloc d'une règle existante de même
+#     `type` et remplir tous les champs obligatoires.
+#
+# CORRESPONDANCE AVEC TOMATE (modules/admin/entity/Etude.php) :
+#   p_jeh       → prix unitaire par JEH (défaut Tomate : 400 €)
+#   per_rem     → pourcentage de rémunération étudiant (défaut Tomate : 65 %)
+#   fee         → frais de gestion facturés au client
+#   break_jeh   → nombre de JEH dans un avenant
+#   break_fee   → frais de gestion de l'avenant
+#   prix_ht     → calculé : somme(n_jeh * p_jeh) sur toutes les étapes
+#   prix_eco    → calculé : prix_ht * 0.01  (cotisation économique CNJE)
+#   prix_tot    → calculé : prix_ht + fee + prix_eco
+#   prix_tva    → calculé : prix_tot * 0.20
+#   prix_ttc    → calculé : prix_tot * 1.20
+#
+# AVERTISSEMENT :
+#   Les valeurs numériques ci-dessous (plafonds, taux) sont basées sur le
+#   référentiel CNJE connu à la date de création de ce fichier.
+#   VÉRIFIER SYSTÉMATIQUEMENT ces valeurs à chaque renouvellement de mandat
+#   en les comparant au référentiel officiel CNJE en vigueur.
+#
+# =============================================================================
+
+meta:
+  version: "1.0.0"
+  date_creation: "2025-01-01"
+  date_derniere_maj: "2025-01-01"
+  auteur: "Pôle SI — ENSAE Junior Études"
+  source_officielle: "Référentiel CNJE — Confédération Nationale des Junior-Entreprises"
+  url_source: "https://www.junior-entreprises.com"
+  note: >
+    Vérifier et mettre à jour ce fichier à chaque changement de mandat
+    et à chaque révision du référentiel CNJE. Tout champ modifié doit
+    être tracé dans le changelog en bas de ce fichier.
+
+
+# =============================================================================
+# SECTION 1 — RÈGLES SUR LE PRIX PAR JEH (p_jeh)
+# Champ Tomate : `p_jeh` (entier, en euros HT)
+# =============================================================================
+
+regles_jeh:
+
+  - id: JEH_PRIX_MIN
+    categorie: "Prix par JEH"
+    champ_tomate: "p_jeh"
+    description: >
+      Le prix unitaire par JEH (Jour-Étudiant-Homologué) ne peut pas être
+      inférieur au plancher fixé par la CNJE. En dessous de ce seuil, la
+      prestation n'est pas homologuable et la Junior-Entreprise perd son
+      statut d'homologation.
+    valeur: 200
+    unite: "€ HT / JEH"
+    type_validation: "min"
+    severite: "bloquant"
+    active: true
+    ref_cnje: "Art. 14 — Référentiel national CNJE"
+    message_erreur: >
+      Le prix par JEH ({valeur_saisie} €) est inférieur au plancher CNJE
+      de {valeur} € HT/JEH. Une étude en-dessous de ce seuil ne peut pas
+      être homologuée. Référence : {ref_cnje}.
+    message_avertissement: null
+    date_maj: "2025-01-01"
+
+  - id: JEH_PRIX_MAX
+    categorie: "Prix par JEH"
+    champ_tomate: "p_jeh"
+    description: >
+      Le prix par JEH ne doit pas dépasser le plafond défini par la CNJE.
+      Au-delà, la prestation sort du cadre d'homologation Junior-Entreprise
+      et ne peut plus bénéficier des avantages fiscaux associés (exonération
+      de TVA sur les JEH pour les membres).
+    valeur: 1500
+    unite: "€ HT / JEH"
+    type_validation: "max"
+    severite: "avertissement"
+    active: true
+    ref_cnje: "Art. 14 — Référentiel national CNJE"
+    message_erreur: null
+    message_avertissement: >
+      Le prix par JEH ({valeur_saisie} €) dépasse le plafond habituel CNJE
+      de {valeur} €/JEH. Une justification sera demandée lors de l'audit
+      d'homologation. Référence : {ref_cnje}.
+    date_maj: "2025-01-01"
+
+  - id: JEH_PRIX_AVENANT_MIN
+    categorie: "Prix par JEH — Avenant"
+    champ_tomate: "break_jeh"
+    description: >
+      Le prix des JEH dans un avenant (break_jeh) doit également respecter
+      le plancher CNJE. Note : Tomate utilise une valeur hardcodée de 340 €
+      dans getPrix_ht_break() — cette règle sert à détecter une incohérence
+      si cette valeur est modifiée dans le code sans mise à jour ici.
+    valeur: 200
+    valeur_tomate_actuelle: 340
+    unite: "€ HT / JEH"
+    type_validation: "min"
+    severite: "bloquant"
+    active: true
+    ref_cnje: "Art. 14 — Référentiel national CNJE"
+    message_erreur: >
+      Le prix par JEH de l'avenant ({valeur_saisie} €) est inférieur au
+      plancher CNJE de {valeur} €/JEH. Référence : {ref_cnje}.
+    message_avertissement: null
+    date_maj: "2025-01-01"
+    note_technique: >
+      La valeur 340 € hardcodée dans Etude::getPrix_ht_break() correspond
+      au prix JEH avenant historique de la JE. Cette valeur devrait être
+      paramétrée dans VarQuali plutôt qu'en dur dans le code PHP.
+
+
+# =============================================================================
+# SECTION 2 — RÈGLES SUR LA RÉMUNÉRATION ÉTUDIANT (per_rem)
+# Champ Tomate : `per_rem` (entier, en pourcentage)
+# Formule Tomate : rémunération = (per_rem / 100) * p_jeh * n_jeh_etudiant
+# =============================================================================
+
+regles_remuneration:
+
+  - id: REM_TAUX_MIN
+    categorie: "Rémunération étudiante"
+    champ_tomate: "per_rem"
+    description: >
+      Le taux de rémunération brute versée à chaque étudiant intervenant
+      ne peut pas être inférieur au minimum fixé par la CNJE. Ce minimum
+      garantit que la JE ne dérive pas vers une structure d'exploitation
+      déguisée. Tomate utilise 65 % par défaut.
+    valeur: 35
+    unite: "% du prix HT/JEH"
+    type_validation: "min"
+    severite: "bloquant"
+    active: true
+    ref_cnje: "Art. 22 — Charte des Junior-Entreprises, conditions de rémunération"
+    message_erreur: >
+      Le taux de rémunération étudiant ({valeur_saisie} %) est inférieur
+      au minimum CNJE de {valeur} % du prix HT par JEH. La CNJE exige que
+      les intervenants perçoivent au minimum {valeur} % du montant HT/JEH.
+      Référence : {ref_cnje}.
+    message_avertissement: null
+    date_maj: "2025-01-01"
+
+  - id: REM_TAUX_COHERENCE
+    categorie: "Rémunération étudiante"
+    champ_tomate: "per_rem"
+    description: >
+      Avertissement non bloquant : un taux de rémunération supérieur à 90 %
+      est techniquement possible mais laisse moins de 10 % pour couvrir les
+      frais de fonctionnement de la JE (cotisations CNJE, frais administratifs,
+      outils). Vérifier que ce choix est intentionnel.
+    valeur: 90
+    unite: "% du prix HT/JEH"
+    type_validation: "max"
+    severite: "avertissement"
+    active: true
+    ref_cnje: null
+    message_erreur: null
+    message_avertissement: >
+      Le taux de rémunération ({valeur_saisie} %) est très élevé. Après
+      déduction de la cotisation économique CNJE (1 %) et des frais de
+      gestion, la marge opérationnelle de la JE sera inférieure à
+      {calcul: 100 - valeur_saisie - 1} %. Vérifier que ce montage est
+      volontaire.
+    date_maj: "2025-01-01"
+
+  - id: REM_MONTANT_MIN_PAR_JEH
+    categorie: "Rémunération étudiante"
+    champ_tomate: "per_rem + p_jeh"
+    description: >
+      Contrôle croisé : la rémunération effective en euros par JEH
+      (p_jeh * per_rem / 100) ne doit pas être inférieure à un seuil
+      absolu plancher. Cela complète JEH_PRIX_MIN et REM_TAUX_MIN en
+      détectant les configurations où les deux valeurs sont dans leurs
+      plages individuelles mais leur combinaison reste trop faible.
+    valeur: 80
+    unite: "€ bruts / JEH"
+    type_validation: "min_calcul"
+    formule: "p_jeh * per_rem / 100"
+    severite: "bloquant"
+    active: true
+    ref_cnje: "Art. 22 — Charte des Junior-Entreprises"
+    message_erreur: >
+      La rémunération effective ({calcul: p_jeh * per_rem / 100} €/JEH)
+      est inférieure au plancher absolu CNJE de {valeur} €/JEH. Augmenter
+      le prix par JEH ou le taux de rémunération. Référence : {ref_cnje}.
+    message_avertissement: null
+    date_maj: "2025-01-01"
+
+
+# =============================================================================
+# SECTION 3 — RÈGLES SUR LES JEH PAR ÉTUDIANT ET PAR ÉTUDE
+# Champs Tomate : `jeh` dans sEtape (table jeh_etape), agrégé par étudiant
+# =============================================================================
+
+regles_volume_jeh:
+
+  - id: JEH_MAX_PAR_ETUDIANT_PAR_ETUDE
+    categorie: "Volume JEH"
+    champ_tomate: "SUM(sEtape.jeh) WHERE etudiant = X"
+    description: >
+      Un même étudiant ne peut pas réaliser plus d'un certain nombre de JEH
+      sur une seule étude. Cette règle protège l'étudiant d'une surcharge de
+      travail incompatible avec son statut d'étudiant à temps plein, et
+      garantit la pluridisciplinarité de l'équipe intervenante.
+    valeur: 40
+    unite: "JEH / étudiant / étude"
+    type_validation: "max"
+    severite: "bloquant"
+    active: true
+    ref_cnje: "Art. 18 — Conditions d'intervention"
+    message_erreur: >
+      L'étudiant {nom_etudiant} est assigné à {valeur_saisie} JEH sur cette
+      étude, ce qui dépasse le plafond CNJE de {valeur} JEH par intervenant
+      par étude. Répartir la charge sur plusieurs étudiants ou réduire le
+      volume. Référence : {ref_cnje}.
+    message_avertissement: null
+    date_maj: "2025-01-01"
+
+  - id: JEH_MAX_PAR_ETUDE_TOTAL
+    categorie: "Volume JEH"
+    champ_tomate: "SUM(Etape.n_jeh)"
+    description: >
+      Le volume total de JEH d'une étude ne doit pas dépasser un plafond
+      absolu. Au-delà, la nature de la prestation sort du cadre Junior-
+      Entreprise (l'étude devient une sous-traitance déguisée ou un contrat
+      de travail). Pour les projets plus volumineux, la structure adaptée
+      est un groupement de JE ou un prestataire classique.
+    valeur: 200
+    unite: "JEH / étude"
+    type_validation: "max"
+    severite: "avertissement"
+    active: true
+    ref_cnje: "Art. 18 — Conditions d'intervention"
+    message_erreur: null
+    message_avertissement: >
+      Le volume total de l'étude ({valeur_saisie} JEH) dépasse {valeur} JEH.
+      Au-delà de ce seuil, la CNJE recommande de vérifier que la prestation
+      reste dans le cadre homologable. Un audit peut être demandé.
+      Référence : {ref_cnje}.
+    date_maj: "2025-01-01"
+
+  - id: JEH_MIN_PAR_ETUDE
+    categorie: "Volume JEH"
+    champ_tomate: "SUM(Etape.n_jeh)"
+    description: >
+      Une étude doit comporter un minimum de JEH pour être homologuable.
+      Une étude à 0 JEH ou avec un volume symbolique (1-2 JEH) ne constitue
+      pas une prestation intellectuelle réelle et ne peut pas bénéficier
+      du cadre JE.
+    valeur: 3
+    unite: "JEH / étude (total)"
+    type_validation: "min"
+    severite: "bloquant"
+    active: true
+    ref_cnje: "Art. 12 — Définition de la prestation JE"
+    message_erreur: >
+      L'étude ne comporte que {valeur_saisie} JEH au total, en dessous du
+      minimum requis de {valeur} JEH pour une prestation homologuable.
+      Référence : {ref_cnje}.
+    message_avertissement: null
+    date_maj: "2025-01-01"
+
+  - id: JEH_MIN_PAR_ETAPE
+    categorie: "Volume JEH"
+    champ_tomate: "Etape.n_jeh"
+    description: >
+      Chaque étape d'une étude doit comporter au minimum 1 JEH. Une étape
+      à 0 JEH est un artefact de saisie (étape créée mais non remplie) et
+      ne doit pas être incluse dans les documents générés.
+    valeur: 1
+    unite: "JEH / étape"
+    type_validation: "min"
+    severite: "bloquant"
+    active: true
+    ref_cnje: null
+    message_erreur: >
+      L'étape "{nom_etape}" ne contient aucun JEH assigné. Supprimer
+      l'étape ou y affecter au moins {valeur} JEH avant de générer
+      les documents.
+    message_avertissement: null
+    date_maj: "2025-01-01"
+
+  - id: JEH_ETUDIANT_MEME_ETAPE_DOUBLONS
+    categorie: "Volume JEH"
+    champ_tomate: "jeh_etape (sEtape)"
+    description: >
+      Un même étudiant ne peut pas apparaître deux fois sur la même étape.
+      Tomate dispose d'une méthode optimizeSEtapes() qui fusionne ces
+      doublons, mais la validation doit les détecter avant génération
+      du document pour éviter les incohérences dans la convention.
+    valeur: 1
+    unite: "occurrence / étudiant / étape"
+    type_validation: "unicite"
+    severite: "bloquant"
+    active: true
+    ref_cnje: null
+    message_erreur: >
+      L'étudiant {nom_etudiant} apparaît plusieurs fois sur l'étape
+      "{nom_etape}". Fusionner les lignes en une seule avant de continuer
+      (utiliser le bouton "Optimiser" dans Tomate, ou corriger manuellement).
+    message_avertissement: null
+    date_maj: "2025-01-01"
+
+
+# =============================================================================
+# SECTION 4 — RÈGLES SUR LES FRAIS DE GESTION (fee)
+# Champ Tomate : `fee` (float, en euros HT)
+# =============================================================================
+
+regles_frais_gestion:
+
+  - id: FEE_TAUX_MAX
+    categorie: "Frais de gestion"
+    champ_tomate: "fee"
+    description: >
+      Les frais de gestion facturés au client (fee) ne peuvent pas dépasser
+      un pourcentage du prix HT de la prestation. Un fee excessif détourne
+      la facturation de sa nature (rémunération du travail étudiant) et
+      peut requalifier la prestation.
+    valeur: 30
+    unite: "% du prix_ht"
+    type_validation: "max_ratio"
+    formule: "(fee / prix_ht) * 100"
+    severite: "avertissement"
+    active: true
+    ref_cnje: "Art. 20 — Structure de facturation"
+    message_erreur: null
+    message_avertissement: >
+      Les frais de gestion ({valeur_saisie} €) représentent
+      {calcul: fee/prix_ht*100} % du montant HT, au-delà du seuil
+      habituel de {valeur} %. Vérifier que cette structure de prix est
+      justifiable lors d'un audit CNJE. Référence : {ref_cnje}.
+    date_maj: "2025-01-01"
+
+  - id: FEE_NEGATIF
+    categorie: "Frais de gestion"
+    champ_tomate: "fee"
+    description: >
+      Les frais de gestion ne peuvent pas être négatifs. Un fee négatif
+      est une erreur de saisie (Tomate initialise fee à 0).
+    valeur: 0
+    unite: "€"
+    type_validation: "min"
+    severite: "bloquant"
+    active: true
+    ref_cnje: null
+    message_erreur: >
+      Les frais de gestion ne peuvent pas être négatifs ({valeur_saisie} €).
+      Corriger la valeur (minimum : 0 €).
+    message_avertissement: null
+    date_maj: "2025-01-01"
+
+
+# =============================================================================
+# SECTION 5 — RÈGLES SUR LA COTISATION ÉCONOMIQUE CNJE (prix_eco)
+# Champ Tomate : calculé → prix_ht * 0.01
+# Cette section sert à documenter et vérifier le taux en vigueur.
+# =============================================================================
+
+regles_cotisation_cnje:
+
+  - id: COTISATION_ECO_TAUX
+    categorie: "Cotisation économique CNJE"
+    champ_tomate: "prix_eco (calculé : prix_ht * taux)"
+    description: >
+      La cotisation économique CNJE est prélevée sur chaque étude et versée
+      à la confédération. Elle est obligatoire pour maintenir le statut
+      d'homologation. Tomate calcule cette cotisation à 1 % du prix HT.
+      Ce fichier documente le taux pour alerter si le code PHP diverge
+      de la règle en vigueur.
+    valeur: 0.01
+    valeur_tomate_actuelle: 0.01
+    unite: "taux (fraction décimale du prix_ht)"
+    type_validation: "reference"
+    severite: "informatif"
+    active: true
+    ref_cnje: "Art. 8 — Cotisation économique, Statuts CNJE"
+    message_erreur: null
+    message_avertissement: >
+      ALERTE CONFIGURATION : le taux de cotisation économique dans Tomate
+      ({valeur_tomate_actuelle}) diffère de la règle CNJE en vigueur
+      ({valeur}). Mettre à jour Etude::getPrix_eco() dans Tomate.
+    note_technique: >
+      Vérifier annuellement que le taux en vigueur correspond à
+      getPrix_eco() dans modules/admin/entity/Etude.php.
+      Taux actuel dans le code : return $this->get("prix_ht") * 0.01
+    date_maj: "2025-01-01"
+
+
+# =============================================================================
+# SECTION 6 — RÈGLES SUR LA TVA
+# Champ Tomate : calculé → prix_tot * 0.20
+# =============================================================================
+
+regles_tva:
+
+  - id: TVA_TAUX
+    categorie: "TVA"
+    champ_tomate: "prix_tva (calculé : prix_tot * taux)"
+    description: >
+      La TVA applicable aux prestations intellectuelles en France est de
+      20 % (taux normal). Les JE homologuées CNJE appliquent ce taux
+      standard sur la totalité du montant facturé (prix_ht + fee + cotisation
+      économique). Ce champ est documenté ici pour audit et mise à jour
+      si le taux légal change.
+    valeur: 0.20
+    valeur_tomate_actuelle: 0.20
+    unite: "taux (fraction décimale)"
+    type_validation: "reference"
+    severite: "informatif"
+    active: true
+    ref_cnje: "Code général des impôts, Art. 278"
+    message_erreur: null
+    message_avertissement: >
+      ALERTE CONFIGURATION : le taux de TVA dans Tomate ({valeur_tomate_actuelle})
+      diffère du taux légal en vigueur ({valeur}). Mettre à jour les méthodes
+      getPrix_tva() dans Tomate.
+    note_technique: >
+      Vérifier que getPrix_tva() utilise bien * 0.20 dans
+      modules/admin/entity/Etude.php.
+    date_maj: "2025-01-01"
+
+
+# =============================================================================
+# SECTION 7 — RÈGLES SUR LES DATES ET DURÉES
+# Champs Tomate : date_start, date_end sur Etape
+# =============================================================================
+
+regles_dates:
+
+  - id: DATE_DEBUT_AVANT_FIN
+    categorie: "Cohérence des dates"
+    champ_tomate: "Etape.date_start / Etape.date_end"
+    description: >
+      La date de début d'une étape doit être strictement antérieure à sa
+      date de fin. Une étape avec date_start >= date_end est une erreur
+      de saisie qui génèrera des documents incohérents.
+    valeur: null
+    unite: null
+    type_validation: "coherence_dates"
+    severite: "bloquant"
+    active: true
+    ref_cnje: null
+    message_erreur: >
+      L'étape "{nom_etape}" a une date de début ({date_start}) postérieure
+      ou égale à sa date de fin ({date_end}). Corriger les dates avant
+      de générer les documents.
+    message_avertissement: null
+    date_maj: "2025-01-01"
+
+  - id: DATE_ETAPES_COHERENCE_ETUDE
+    categorie: "Cohérence des dates"
+    champ_tomate: "Etude.date_start / Etude.date_end (calculés depuis Etape)"
+    description: >
+      Les dates de début et fin de l'étude (calculées automatiquement par
+      Tomate comme min/max des étapes) doivent être cohérentes avec le
+      contexte : une étude ne peut pas se terminer avant d'avoir commencé,
+      et une durée négative indique une erreur.
+    valeur: null
+    unite: null
+    type_validation: "coherence_dates"
+    severite: "bloquant"
+    active: true
+    ref_cnje: null
+    message_erreur: >
+      Les dates de l'étude sont incohérentes : la date de fin calculée
+      ({date_end}) est antérieure à la date de début ({date_start}).
+      Vérifier les dates de toutes les étapes.
+    message_avertissement: null
+    date_maj: "2025-01-01"
+
+  - id: DUREE_MAX_ETUDE
+    categorie: "Durée de l'étude"
+    champ_tomate: "Etude.n_week (calculé)"
+    description: >
+      Une étude JE ne peut pas s'étendre sur une durée excessive. La CNJE
+      fixe une durée maximale au-delà de laquelle la prestation doit être
+      recadrée (avenant, nouvelle étude, ou requalification). Une durée
+      trop longue peut indiquer que le projet a dérivé hors du cadre JE.
+    valeur: 52
+    unite: "semaines"
+    type_validation: "max"
+    severite: "avertissement"
+    active: true
+    ref_cnje: "Art. 18 — Conditions d'intervention"
+    message_erreur: null
+    message_avertissement: >
+      La durée de l'étude ({valeur_saisie} semaines) dépasse {valeur}
+      semaines (1 an). La CNJE recommande de recadrer une prestation
+      aussi longue via un avenant formel ou une nouvelle étude.
+      Référence : {ref_cnje}.
+    date_maj: "2025-01-01"
+
+  - id: DATE_CREATION_FUTURE
+    categorie: "Cohérence des dates"
+    champ_tomate: "Etude.date_created"
+    description: >
+      La date de création d'une étude ne peut pas être dans le futur.
+      Une date de création future est une erreur de saisie ou de
+      configuration du serveur.
+    valeur: null
+    unite: null
+    type_validation: "not_future"
+    severite: "bloquant"
+    active: true
+    ref_cnje: null
+    message_erreur: >
+      La date de création de l'étude ({date_created}) est dans le futur.
+      Vérifier la configuration de la date sur le serveur ou corriger
+      la saisie.
+    message_avertissement: null
+    date_maj: "2025-01-01"
+
+
+# =============================================================================
+# SECTION 8 — RÈGLES SUR LES INTERVENANTS ET L'ÉQUIPE
+# Champ Tomate : Etude.work_requests (WorkRequest acceptés → étudiants)
+# =============================================================================
+
+regles_intervenants:
+
+  - id: INTERVENANTS_MIN
+    categorie: "Composition de l'équipe"
+    champ_tomate: "Etude.etudiants (WorkRequest acceptés)"
+    description: >
+      Une étude doit avoir au minimum un étudiant intervenant assigné avant
+      de pouvoir générer la convention. Une convention sans intervenant
+      nommé est juridiquement invalide.
+    valeur: 1
+    unite: "étudiant(s) assigné(s)"
+    type_validation: "min"
+    severite: "bloquant"
+    active: true
+    ref_cnje: "Art. 16 — Composition de l'équipe intervenante"
+    message_erreur: >
+      Aucun étudiant intervenant n'est assigné à cette étude. La convention
+      ne peut pas être générée sans au moins {valeur} intervenant nommé.
+      Accepter au moins une candidature dans l'onglet Recrutement.
+      Référence : {ref_cnje}.
+    message_avertissement: null
+    date_maj: "2025-01-01"
+
+  - id: INTERVENANTS_STATUT_ETUDIANT
+    categorie: "Composition de l'équipe"
+    champ_tomate: "Auth\\Entity\\User (niveau 0 ou 1)"
+    description: >
+      Seuls des étudiants régulièrement inscrits dans un établissement
+      d'enseignement supérieur peuvent intervenir dans le cadre d'une
+      JE homologuée CNJE. Le champ `level` dans Tomate distingue les
+      étudiants (level 0-1) des administrateurs (level 2-3).
+    valeur: 1
+    unite: "level Tomate maximum pour intervenant"
+    type_validation: "max"
+    severite: "bloquant"
+    active: true
+    ref_cnje: "Art. 4 — Définition du membre Junior-Entreprise"
+    message_erreur: >
+      Un ou plusieurs intervenants assignés ont un profil administrateur
+      (level > {valeur}). Les administrateurs ne peuvent pas être facturés
+      comme intervenants. Vérifier les profils dans Tomate.
+      Référence : {ref_cnje}.
+    message_avertissement: null
+    date_maj: "2025-01-01"
+
+  - id: INTERVENANTS_MAX_PAR_ETAPE
+    categorie: "Composition de l'équipe"
+    champ_tomate: "sEtape (jeh_etape)"
+    description: >
+      Avertissement non bloquant : le nombre d'intervenants sur une même
+      étape ne devrait pas être excessif. Au-delà d'un certain seuil,
+      la granularité des JEH par intervenant devient trop faible pour
+      être crédible lors d'un audit.
+    valeur: 6
+    unite: "étudiants / étape"
+    type_validation: "max"
+    severite: "avertissement"
+    active: true
+    ref_cnje: null
+    message_erreur: null
+    message_avertissement: >
+      L'étape "{nom_etape}" compte {valeur_saisie} intervenants distincts,
+      ce qui dépasse le seuil habituel de {valeur}. Vérifier que la
+      répartition des JEH reste crédible et justifiable lors d'un audit.
+    date_maj: "2025-01-01"
+
+
+# =============================================================================
+# SECTION 9 — RÈGLES SUR LES INFORMATIONS CLIENT ET ENTREPRISE
+# Champs Tomate : Etude.client, Etude.entreprise, Etude.signataire
+# =============================================================================
+
+regles_client:
+
+  - id: CLIENT_OBLIGATOIRE
+    categorie: "Informations client"
+    champ_tomate: "Etude.client"
+    description: >
+      Une étude doit avoir un client référencé avant de générer tout document
+      contractuel. Le client est la personne physique signataire côté
+      entreprise cliente.
+    valeur: null
+    unite: null
+    type_validation: "not_null"
+    severite: "bloquant"
+    active: true
+    ref_cnje: "Art. 25 — Contenu obligatoire de la convention"
+    message_erreur: >
+      Aucun client n'est renseigné pour cette étude. La convention ne peut
+      pas être générée sans un client référencé. Créer ou sélectionner un
+      client dans Tomate. Référence : {ref_cnje}.
+    message_avertissement: null
+    date_maj: "2025-01-01"
+
+  - id: ENTREPRISE_OBLIGATOIRE
+    categorie: "Informations client"
+    champ_tomate: "Etude.entreprise"
+    description: >
+      L'entreprise cliente doit être renseignée. Tomate distingue le client
+      (personne physique) de l'entreprise (personne morale). Les deux sont
+      obligatoires pour une convention valide.
+    valeur: null
+    unite: null
+    type_validation: "not_null"
+    severite: "bloquant"
+    active: true
+    ref_cnje: "Art. 25 — Contenu obligatoire de la convention"
+    message_erreur: >
+      Aucune entreprise n'est renseignée pour cette étude. La convention
+      requiert les informations de l'entreprise cliente (raison sociale,
+      adresse, SIRET). Référence : {ref_cnje}.
+    message_avertissement: null
+    date_maj: "2025-01-01"
+
+  - id: SIGNATAIRE_OBLIGATOIRE_POUR_CONVENTION
+    categorie: "Informations client"
+    champ_tomate: "Etude.signataire"
+    description: >
+      Le signataire côté client doit être identifié pour les documents
+      contractuels (convention, avenant). Il peut être différent du client
+      de référence (ex: le DG signe mais le chef de projet est le client).
+    valeur: null
+    unite: null
+    type_validation: "not_null"
+    severite: "bloquant"
+    active: true
+    ref_cnje: "Art. 25 — Contenu obligatoire de la convention"
+    message_erreur: >
+      Aucun signataire n'est désigné pour cette étude. La convention ne
+      peut pas être émise sans un signataire identifié côté client.
+      Renseigner le champ "Signataire" dans Tomate. Référence : {ref_cnje}.
+    message_avertissement: null
+    date_maj: "2025-01-01"
+
+
+# =============================================================================
+# SECTION 10 — RÈGLES SUR LES DOCUMENTS OBLIGATOIRES
+# Champ Tomate : Etude.docs (DocEtude) selon Etude.statut
+# =============================================================================
+
+documents_obligatoires:
+
+  - id: DOC_CONVENTION_AVANT_DEMARRAGE
+    categorie: "Documents obligatoires"
+    champ_tomate: "Etude.docs (DocEtude de type 'convention')"
+    description: >
+      Une convention de prestation signée doit exister avant que l'étude
+      passe au statut "En cours" (statut 4 dans Tomate). Démarrer une
+      prestation sans convention signée expose la JE à une requalification
+      en contrat de travail.
+    statut_declencheur: 4
+    type_doc_requis: "convention"
+    severite: "bloquant"
+    active: true
+    ref_cnje: "Art. 25 — Obligation de convention préalable"
+    message_erreur: >
+      L'étude ne peut pas passer au statut "En cours" sans qu'une convention
+      de prestation signée soit archivée dans Tomate. Générer et archiver
+      la convention avant de démarrer la prestation. Référence : {ref_cnje}.
+    message_avertissement: null
+    date_maj: "2025-01-01"
+
+  - id: DOC_LETTRE_MISSION_ETUDIANTS
+    categorie: "Documents obligatoires"
+    champ_tomate: "WorkRequest.lettre"
+    description: >
+      Chaque étudiant intervenant doit avoir soumis une lettre de mission
+      ou de candidature. Ce document matérialise l'accord de l'étudiant
+      et sa connaissance du contenu de la mission.
+    valeur: null
+    unite: null
+    type_validation: "not_null_pour_acceptes"
+    severite: "avertissement"
+    active: true
+    ref_cnje: "Art. 19 — Engagement de l'intervenant"
+    message_erreur: null
+    message_avertissement: >
+      L'étudiant {nom_etudiant} a été accepté mais n'a pas soumis de lettre
+      de mission. Vérifier que ce document est archivé séparément.
+      Référence : {ref_cnje}.
+    date_maj: "2025-01-01"
+
+  - id: DOC_AVENANT_AVANT_MODIFICATION
+    categorie: "Documents obligatoires"
+    champ_tomate: "Etude.child (étude enfant = avenant)"
+    description: >
+      Toute modification substantielle d'une étude en cours (JEH, prix,
+      délais) doit faire l'objet d'un avenant formalisé. Dans Tomate, cela
+      correspond à la création d'une étude "enfant" (méthode infant()).
+      Une étude locked sans child est dans un état incohérent.
+    valeur: null
+    unite: null
+    type_validation: "coherence_locked_child"
+    severite: "avertissement"
+    active: true
+    ref_cnje: "Art. 27 — Modification de la convention par avenant"
+    message_erreur: null
+    message_avertissement: >
+      Cette étude est marquée comme verrouillée (locked) mais ne possède
+      pas d'étude enfant (avenant). Vérifier l'état de l'étude dans Tomate
+      et créer un avenant si une modification est nécessaire.
+      Référence : {ref_cnje}.
+    date_maj: "2025-01-01"
+
+
+# =============================================================================
+# SECTION 11 — RÈGLES DE COHÉRENCE GLOBALE ET CALCULS CROISÉS
+# Vérifications multi-champs qui ne correspondent pas à un seul champ Tomate.
+# =============================================================================
+
+regles_coherence_globale:
+
+  - id: PRIX_TTC_COHERENCE
+    categorie: "Cohérence de la facturation"
+    champ_tomate: "prix_ht + fee + prix_eco + prix_tva"
+    description: >
+      Le montant TTC total calculé par Tomate doit être strictement positif
+      et supérieur au prix HT seul. Cette règle détecte les configurations
+      aberrantes (fee négatif absorbant le prix HT, taux incohérents).
+    valeur: null
+    unite: null
+    type_validation: "coherence_calcul"
+    formule: "prix_ttc > prix_ht"
+    severite: "bloquant"
+    active: true
+    ref_cnje: null
+    message_erreur: >
+      Le montant TTC calculé ({prix_ttc} €) est inférieur ou égal au
+      prix HT ({prix_ht} €). Vérifier les frais de gestion et la structure
+      de facturation. Il y a une incohérence dans les données saisies.
+    message_avertissement: null
+    date_maj: "2025-01-01"
+
+  - id: REMUNERATION_TOTALE_SOUS_PRIX_HT
+    categorie: "Cohérence de la facturation"
+    champ_tomate: "per_rem + p_jeh + n_jeh total"
+    description: >
+      La somme totale des rémunérations versées aux étudiants ne doit pas
+      dépasser le prix HT total de l'étude. Si la rémunération cumulée
+      dépasse le prix HT, la JE est en situation de déficit opérationnel
+      sur cette étude.
+    valeur: 100
+    unite: "% — la rémunération totale doit rester < prix_ht"
+    type_validation: "max_ratio"
+    formule: "(somme_remunerations / prix_ht) * 100"
+    severite: "bloquant"
+    active: true
+    ref_cnje: "Art. 22 — Équilibre financier de la prestation"
+    message_erreur: >
+      La somme des rémunérations étudiantes ({somme_remunerations} €)
+      dépasse le prix HT de l'étude ({prix_ht} €). La JE ne peut pas
+      rémunérer plus que ce qu'elle facture. Réduire le taux de
+      rémunération ou augmenter le prix HT. Référence : {ref_cnje}.
+    message_avertissement: null
+    date_maj: "2025-01-01"
+
+  - id: ETUDE_NUMERO_UNIQUE
+    categorie: "Cohérence administrative"
+    champ_tomate: "Etude.numero"
+    description: >
+      Le numéro d'étude (généré automatiquement par Tomate via generateNum())
+      doit être unique dans la base. Ce contrôle est normalement géré par
+      Tomate mais doit être vérifié lors d'imports ou de migrations de BDD.
+    valeur: null
+    unite: null
+    type_validation: "unicite"
+    severite: "bloquant"
+    active: true
+    ref_cnje: null
+    message_erreur: >
+      Le numéro d'étude {numero} est déjà utilisé par une autre étude.
+      Utiliser la fonction generateNum() de Tomate pour attribuer un
+      numéro unique automatiquement.
+    message_avertissement: null
+    date_maj: "2025-01-01"
+
+
+# =============================================================================
+# SECTION 12 — CONFIGURATION DU GÉNÉRATEUR DE MEGA-PROMPTS
+# Ces paramètres contrôlent la génération des prompts IA pour les étudiants.
+# Ils ne sont pas des règles de validation mais des paramètres de contenu.
+# =============================================================================
+
+mega_prompt_config:
+
+  champs_a_anonymiser:
+    description: >
+      Ces champs sont remplacés par des placeholders génériques dans le
+      Mega-Prompt envoyé à l'IA externe pour protéger les données client.
+      Ex: "client.nom" devient [CLIENT_NOM].
+    liste:
+      - "client.nom"
+      - "client.prenom"
+      - "client.email"
+      - "client.telephone"
+      - "entreprise.siret"
+      - "entreprise.adresse"
+
+  champs_inclus_dans_prompt:
+    description: >
+      Ces champs sont inclus dans le prompt pour fournir à l'IA le contexte
+      nécessaire à la rédaction. Ce sont exclusivement des champs textuels
+      et structurels — jamais de données financières ou nominatives.
+    liste:
+      - "etude.but"
+      - "etude.specifications"
+      - "etude.competences"
+      - "etude.domaines"
+      - "etude.lieu"
+      - "etape[].nom"
+      - "etape[].details"
+      - "etape[].n_jeh"
+
+  champs_exclus_du_prompt:
+    description: >
+      Ces champs ne doivent JAMAIS apparaître dans un prompt envoyé à une
+      IA externe. Ce sont les données financières contractuelles et les
+      données personnelles des parties.
+    liste:
+      - "p_jeh"
+      - "per_rem"
+      - "fee"
+      - "prix_ht"
+      - "prix_ttc"
+      - "client.*"
+      - "entreprise.siret"
+
+  templates_prompt:
+
+    - id: "PROMPT_DESCRIPTION_MISSION"
+      type_etude: "tous"
+      usage: "Rédaction du champ 'but' et 'specifications' de l'étude"
+      longueur_cible: "150-250 mots"
+      instructions_ia: >
+        Tu es un rédacteur expert en prestations intellectuelles pour
+        Junior-Entreprises. Rédige une description de mission professionnelle,
+        précise et valorisante pour le document de convention. La description
+        doit : (1) présenter clairement l'objectif de la mission en une phrase
+        d'accroche, (2) détailler les livrables attendus, (3) mentionner les
+        méthodes ou outils si pertinent. Style : professionnel, factuel,
+        sans jargon inutile. Longueur : {longueur_cible}.
+        NE PAS inventer de chiffres, de prix, ou d'informations non fournies.
+
+    - id: "PROMPT_DESCRIPTION_ETAPE"
+      type_etude: "tous"
+      usage: "Rédaction du champ 'details' de chaque étape"
+      longueur_cible: "50-100 mots par étape"
+      instructions_ia: >
+        Pour chaque étape fournie, rédige une description courte et précise
+        des activités réalisées et des livrables intermédiaires. Style :
+        concis, orienté action (verbes d'action : analyser, modéliser,
+        développer, valider...). Longueur : {longueur_cible} par étape.
+        NE PAS modifier les noms d'étapes ni le nombre de JEH fournis.
+
+    - id: "PROMPT_COMPETENCES"
+      type_etude: "tous"
+      usage: "Rédaction du champ 'competences' pour l'offre de recrutement"
+      longueur_cible: "80-120 mots"
+      instructions_ia: >
+        Rédige une liste des compétences et prérequis pour les étudiants
+        candidats à cette mission. Format : liste à puces, 4 à 6 items.
+        Distinguer les compétences obligatoires des compétences souhaitables.
+        Adapter le niveau aux domaines indiqués. Style : attractif pour
+        un recrutement interne JE.
+
+
+# =============================================================================
+# CHANGELOG — Historique des modifications
+# =============================================================================
+
+changelog:
+  - version: "1.0.0"
+    date: "2025-01-01"
+    auteur: "Pôle SI — ENSAE Junior Études"
+    modifications:
+      - "Création initiale du fichier"
+      - "Import de toutes les règles depuis le référentiel CNJE connu"
+      - "Correspondance établie avec les champs Tomate (Etude.php)"
+      - "Ajout de la configuration Mega-Prompt (Section 12)"
+    a_verifier:
+      - "JEH_PRIX_MIN : confirmer le plancher actuel avec le référentiel CNJE officiel"
+      - "REM_TAUX_MIN : confirmer 35 % ou valeur en vigueur"
+      - "JEH_MAX_PAR_ETUDIANT_PAR_ETUDE : confirmer 40 JEH avec le référentiel"
+      - "DUREE_MAX_ETUDE : confirmer 52 semaines ou valeur en vigueur"
+      - "Taux cotisation économique : confirmer 1 % avec le bureau CNJE"

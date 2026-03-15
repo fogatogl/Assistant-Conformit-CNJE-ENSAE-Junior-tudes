@@ -92,14 +92,14 @@ def load_firebase_bridge():
 
 @st.cache_data(ttl=300)
 def load_users_from_firebase():
-    """Charge la liste des étudiants depuis Firestore (cache 5 min)."""
-    bridge, _ = load_firebase_bridge()
+    bridge, bridge_msg = load_firebase_bridge()
     if bridge is None:
-        return []
+        return [], f"Bridge indisponible : {bridge_msg}"
     try:
-        return bridge.get_users()
-    except Exception:
-        return []
+        users = bridge.get_users()
+        return users, None
+    except Exception as e:
+        return [], str(e)
 
 @st.cache_data
 def load_yaml_meta():
@@ -430,9 +430,11 @@ def step_etapes():
                 # Sous-formulaire assignation d'un étudiant à cette étape
                 with st.expander(f"Assigner des JEH à l'étape {idx+1}"):
                     # Charger les étudiants depuis Firestore
-                    users = load_users_from_firebase()
-                    if not users:
-                        st.warning("Impossible de charger la liste des étudiants. Vérifiez la connexion Firestore.")
+                    users, users_error = load_users_from_firebase()
+                    if users_error:
+                        st.error(f"Erreur chargement étudiants : {users_error}")
+                    elif not users:
+                        st.warning("Aucun étudiant trouvé dans Firestore (collection 'users' vide ?).")
                     else:
                         # Construire le mapping "Prénom Nom → {_id, nom, prenom}"
                         def user_label(u):

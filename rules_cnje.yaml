@@ -37,9 +37,9 @@
 
 meta:
   version: "1.0.0"
-  date_creation: "2025-01-01"
-  date_derniere_maj: "2025-01-01"
-  auteur: "Pôle SI — ENSAE Junior Études"
+  date_creation: "2026-03-15"
+  date_derniere_maj: "2026-03-17"
+  auteur: "Pôle DSI — ENSAE Junior Études"
   source_officielle: "Référentiel CNJE — Confédération Nationale des Junior-Entreprises"
   url_source: "https://www.junior-entreprises.com"
   note: >
@@ -74,7 +74,7 @@ regles_jeh:
       de {valeur} € HT/JEH. Une étude en-dessous de ce seuil ne peut pas
       être homologuée. Référence : {ref_cnje}.
     message_avertissement: null
-    date_maj: "2025-01-01"
+    date_maj: "2026-03-15"
 
   - id: JEH_PRIX_MAX
     categorie: "Prix par JEH"
@@ -84,7 +84,7 @@ regles_jeh:
       Au-delà, la prestation sort du cadre d'homologation Junior-Entreprise
       et ne peut plus bénéficier des avantages fiscaux associés (exonération
       de TVA sur les JEH pour les membres).
-    valeur: 1500
+    valeur: 500
     unite: "€ HT / JEH"
     type_validation: "max"
     severite: "avertissement"
@@ -95,7 +95,7 @@ regles_jeh:
       Le prix par JEH ({valeur_saisie} €) dépasse le plafond habituel CNJE
       de {valeur} €/JEH. Une justification sera demandée lors de l'audit
       d'homologation. Référence : {ref_cnje}.
-    date_maj: "2025-01-01"
+    date_maj: "2026-03-15"
 
   - id: JEH_PRIX_AVENANT_MIN
     categorie: "Prix par JEH — Avenant"
@@ -116,7 +116,7 @@ regles_jeh:
       Le prix par JEH de l'avenant ({valeur_saisie} €) est inférieur au
       plancher CNJE de {valeur} €/JEH. Référence : {ref_cnje}.
     message_avertissement: null
-    date_maj: "2025-01-01"
+    date_maj: "2026-03-15"
     note_technique: >
       La valeur 340 € hardcodée dans Etude::getPrix_ht_break() correspond
       au prix JEH avenant historique de la JE. Cette valeur devrait être
@@ -151,7 +151,7 @@ regles_remuneration:
       les intervenants perçoivent au minimum {valeur} % du montant HT/JEH.
       Référence : {ref_cnje}.
     message_avertissement: null
-    date_maj: "2025-01-01"
+    date_maj: "2026-03-15"
 
   - id: REM_TAUX_COHERENCE
     categorie: "Rémunération étudiante"
@@ -174,7 +174,7 @@ regles_remuneration:
       gestion, la marge opérationnelle de la JE sera inférieure à
       {calcul: 100 - valeur_saisie - 1} %. Vérifier que ce montage est
       volontaire.
-    date_maj: "2025-01-01"
+    date_maj: "2026-03-15"
 
   - id: REM_MONTANT_MIN_PAR_JEH
     categorie: "Rémunération étudiante"
@@ -197,7 +197,7 @@ regles_remuneration:
       est inférieure au plancher absolu CNJE de {valeur} €/JEH. Augmenter
       le prix par JEH ou le taux de rémunération. Référence : {ref_cnje}.
     message_avertissement: null
-    date_maj: "2025-01-01"
+    date_maj: "2026-03-15"
 
 
 # =============================================================================
@@ -227,7 +227,7 @@ regles_volume_jeh:
       par étude. Répartir la charge sur plusieurs étudiants ou réduire le
       volume. Référence : {ref_cnje}.
     message_avertissement: null
-    date_maj: "2025-01-01"
+    date_maj: "2026-03-15"
 
   - id: JEH_MAX_PAR_ETUDE_TOTAL
     categorie: "Volume JEH"
@@ -250,7 +250,7 @@ regles_volume_jeh:
       Au-delà de ce seuil, la CNJE recommande de vérifier que la prestation
       reste dans le cadre homologable. Un audit peut être demandé.
       Référence : {ref_cnje}.
-    date_maj: "2025-01-01"
+    date_maj: "2026-03-15"
 
   - id: JEH_MIN_PAR_ETUDE
     categorie: "Volume JEH"
@@ -271,7 +271,7 @@ regles_volume_jeh:
       minimum requis de {valeur} JEH pour une prestation homologuable.
       Référence : {ref_cnje}.
     message_avertissement: null
-    date_maj: "2025-01-01"
+    date_maj: "2026-03-15"
 
   - id: JEH_MIN_PAR_ETAPE
     categorie: "Volume JEH"
@@ -291,7 +291,7 @@ regles_volume_jeh:
       l'étape ou y affecter au moins {valeur} JEH avant de générer
       les documents.
     message_avertissement: null
-    date_maj: "2025-01-01"
+    date_maj: "2026-03-15"
 
   - id: JEH_ETUDIANT_MEME_ETAPE_DOUBLONS
     categorie: "Volume JEH"
@@ -312,7 +312,7 @@ regles_volume_jeh:
       "{nom_etape}". Fusionner les lignes en une seule avant de continuer
       (utiliser le bouton "Optimiser" dans Tomate, ou corriger manuellement).
     message_avertissement: null
-    date_maj: "2025-01-01"
+    date_maj: "2026-03-15"
 
 
 # =============================================================================
@@ -343,7 +343,7 @@ regles_frais_gestion:
       {calcul: fee/prix_ht*100} % du montant HT, au-delà du seuil
       habituel de {valeur} %. Vérifier que cette structure de prix est
       justifiable lors d'un audit CNJE. Référence : {ref_cnje}.
-    date_maj: "2025-01-01"
+    date_maj: "2026-03-15"
 
   - id: FEE_NEGATIF
     categorie: "Frais de gestion"
@@ -361,7 +361,7 @@ regles_frais_gestion:
       Les frais de gestion ne peuvent pas être négatifs ({valeur_saisie} €).
       Corriger la valeur (minimum : 0 €).
     message_avertissement: null
-    date_maj: "2025-01-01"
+    date_maj: "2026-03-15"
 
 
 # =============================================================================
@@ -397,7 +397,7 @@ regles_cotisation_cnje:
       Vérifier annuellement que le taux en vigueur correspond à
       getPrix_eco() dans modules/admin/entity/Etude.php.
       Taux actuel dans le code : return $this->get("prix_ht") * 0.01
-    date_maj: "2025-01-01"
+    date_maj: "2026-03-15"
 
 
 # =============================================================================
@@ -431,7 +431,7 @@ regles_tva:
     note_technique: >
       Vérifier que getPrix_tva() utilise bien * 0.20 dans
       modules/admin/entity/Etude.php.
-    date_maj: "2025-01-01"
+    date_maj: "2026-03-15"
 
 
 # =============================================================================
@@ -459,7 +459,7 @@ regles_dates:
       ou égale à sa date de fin ({date_end}). Corriger les dates avant
       de générer les documents.
     message_avertissement: null
-    date_maj: "2025-01-01"
+    date_maj: "2026-03-15"
 
   - id: DATE_ETAPES_COHERENCE_ETUDE
     categorie: "Cohérence des dates"
@@ -480,7 +480,7 @@ regles_dates:
       ({date_end}) est antérieure à la date de début ({date_start}).
       Vérifier les dates de toutes les étapes.
     message_avertissement: null
-    date_maj: "2025-01-01"
+    date_maj: "2026-03-15"
 
   - id: DUREE_MAX_ETUDE
     categorie: "Durée de l'étude"
@@ -502,7 +502,7 @@ regles_dates:
       semaines (1 an). La CNJE recommande de recadrer une prestation
       aussi longue via un avenant formel ou une nouvelle étude.
       Référence : {ref_cnje}.
-    date_maj: "2025-01-01"
+    date_maj: "2026-03-15"
 
   - id: DATE_CREATION_FUTURE
     categorie: "Cohérence des dates"
@@ -522,7 +522,7 @@ regles_dates:
       Vérifier la configuration de la date sur le serveur ou corriger
       la saisie.
     message_avertissement: null
-    date_maj: "2025-01-01"
+    date_maj: "2026-03-15"
 
 
 # =============================================================================
@@ -551,7 +551,7 @@ regles_intervenants:
       Accepter au moins une candidature dans l'onglet Recrutement.
       Référence : {ref_cnje}.
     message_avertissement: null
-    date_maj: "2025-01-01"
+    date_maj: "2026-03-15"
 
   - id: INTERVENANTS_STATUT_ETUDIANT
     categorie: "Composition de l'équipe"
@@ -573,7 +573,7 @@ regles_intervenants:
       comme intervenants. Vérifier les profils dans Tomate.
       Référence : {ref_cnje}.
     message_avertissement: null
-    date_maj: "2025-01-01"
+    date_maj: "2026-03-15"
 
   - id: INTERVENANTS_MAX_PAR_ETAPE
     categorie: "Composition de l'équipe"
@@ -594,7 +594,7 @@ regles_intervenants:
       L'étape "{nom_etape}" compte {valeur_saisie} intervenants distincts,
       ce qui dépasse le seuil habituel de {valeur}. Vérifier que la
       répartition des JEH reste crédible et justifiable lors d'un audit.
-    date_maj: "2025-01-01"
+    date_maj: "2026-03-15"
 
 
 # =============================================================================
@@ -622,7 +622,7 @@ regles_client:
       pas être générée sans un client référencé. Créer ou sélectionner un
       client dans Tomate. Référence : {ref_cnje}.
     message_avertissement: null
-    date_maj: "2025-01-01"
+    date_maj: "2026-03-15"
 
   - id: ENTREPRISE_OBLIGATOIRE
     categorie: "Informations client"
@@ -642,7 +642,7 @@ regles_client:
       requiert les informations de l'entreprise cliente (raison sociale,
       adresse, SIRET). Référence : {ref_cnje}.
     message_avertissement: null
-    date_maj: "2025-01-01"
+    date_maj: "2026-03-15"
 
   - id: SIGNATAIRE_OBLIGATOIRE_POUR_CONVENTION
     categorie: "Informations client"
@@ -662,7 +662,7 @@ regles_client:
       peut pas être émise sans un signataire identifié côté client.
       Renseigner le champ "Signataire" dans Tomate. Référence : {ref_cnje}.
     message_avertissement: null
-    date_maj: "2025-01-01"
+    date_maj: "2026-03-15"
 
 
 # =============================================================================
@@ -690,7 +690,7 @@ documents_obligatoires:
       de prestation signée soit archivée dans Tomate. Générer et archiver
       la convention avant de démarrer la prestation. Référence : {ref_cnje}.
     message_avertissement: null
-    date_maj: "2025-01-01"
+    date_maj: "2026-03-15"
 
   - id: DOC_LETTRE_MISSION_ETUDIANTS
     categorie: "Documents obligatoires"
@@ -710,7 +710,7 @@ documents_obligatoires:
       L'étudiant {nom_etudiant} a été accepté mais n'a pas soumis de lettre
       de mission. Vérifier que ce document est archivé séparément.
       Référence : {ref_cnje}.
-    date_maj: "2025-01-01"
+    date_maj: "2026-03-15"
 
   - id: DOC_AVENANT_AVANT_MODIFICATION
     categorie: "Documents obligatoires"
@@ -732,7 +732,7 @@ documents_obligatoires:
       pas d'étude enfant (avenant). Vérifier l'état de l'étude dans Tomate
       et créer un avenant si une modification est nécessaire.
       Référence : {ref_cnje}.
-    date_maj: "2025-01-01"
+    date_maj: "2026-03-15"
 
 
 # =============================================================================
@@ -761,7 +761,7 @@ regles_coherence_globale:
       prix HT ({prix_ht} €). Vérifier les frais de gestion et la structure
       de facturation. Il y a une incohérence dans les données saisies.
     message_avertissement: null
-    date_maj: "2025-01-01"
+    date_maj: "2026-03-15"
 
   - id: REMUNERATION_TOTALE_SOUS_PRIX_HT
     categorie: "Cohérence de la facturation"
@@ -784,7 +784,7 @@ regles_coherence_globale:
       rémunérer plus que ce qu'elle facture. Réduire le taux de
       rémunération ou augmenter le prix HT. Référence : {ref_cnje}.
     message_avertissement: null
-    date_maj: "2025-01-01"
+    date_maj: "2026-03-15"
 
   - id: ETUDE_NUMERO_UNIQUE
     categorie: "Cohérence administrative"
@@ -804,7 +804,7 @@ regles_coherence_globale:
       Utiliser la fonction generateNum() de Tomate pour attribuer un
       numéro unique automatiquement.
     message_avertissement: null
-    date_maj: "2025-01-01"
+    date_maj: "2026-03-15"
 
 
 # =============================================================================
@@ -902,8 +902,8 @@ mega_prompt_config:
 
 changelog:
   - version: "1.0.0"
-    date: "2025-01-01"
-    auteur: "Pôle SI — ENSAE Junior Études"
+    date: "2026-03-17"
+    auteur: "Pôle DSI — ENSAE Junior Études"
     modifications:
       - "Création initiale du fichier"
       - "Import de toutes les règles depuis le référentiel CNJE connu"
